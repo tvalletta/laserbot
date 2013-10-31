@@ -1,6 +1,9 @@
 /**
  * Created by validity on 10/25/13.
  */
+var rgb = {r: 204, g: 102, b: 0};
+var ct = 5;
+var lt = 25;
 
 var TargetMotion = function(video) {
 
@@ -42,46 +45,51 @@ var TargetMotion = function(video) {
 
     mask.data = src.ctx.createImageData(width, height);
 //    diff(src, mask);
-    findColor(src, mask, {r: 255, g: 102, b: 0}, 10, 80);
+    target(src, mask, rgb);
     mask.ctx.putImageData(mask.data, 0, 0);
 
     src.prev = src.data;
   }
 
   function diff(src, mask) {
-    console.time('diff');
     for (var i = 0; i < (src.data.data.length / 4); ++i) {
       mask.data.data[4 * i] = abs(src.data.data[4 * i] - src.prev.data[4 * 1]);
       mask.data.data[4 * i + 1] = abs(src.data.data[4 * i + 1] - src.prev.data[4 * 1 + 1]);
       mask.data.data[4 * i + 2] = abs(src.data.data[4 * i + 2] - src.prev.data[4 * 1 + 2]);
       mask.data.data[4 * i + 3] = 0xFF;
     }
-    console.timeEnd('diff');
   }
 
-  function findColor(src, mask, rgb, colorThreshold, tintThreshold) {
-    console.time('color');
+  function target(src, mask, rgb) {
     var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
     for (var i = 0; i < (src.data.data.length / 4); ++i) {
-//      var sHSL = rgbToHsl(
-//        src.data.data[4 * 1],
-//        src.data.data[4 * 1 + 1],
-//        src.data.data[4 * 1 + 2]);
-//      if (abs(100 * tHSL[0] - 100 * sHSL[0]) <= colorThreshold &&
-//        abs(100 * tHSL[2] - 100 * sHSL[2]) <= tintThreshold) {
-//        mask.data.data[4 * i] = src.data.data[4 * 1];
-//        mask.data.data[4 * i + 1] = src.data.data[4 * 1 + 1];
-//        mask.data.data[4 * i + 2] = src.data.data[4 * 1 + 2];
-//        mask.data.data[4 * i + 3] = 0xFF;
-//      }
-//      else {
-        mask.data.data[4 * i] = src.data.data[4 * 1];
-        mask.data.data[4 * i + 1] = src.data.data[4 * 1 + 1];
-        mask.data.data[4 * i + 2] = 0;
+      var sHSL = rgbToHsl(
+        src.data.data[4 * i],
+        src.data.data[4 * i + 1],
+        src.data.data[4 * i + 2]);
+
+//      if (matchColor(sHSL, tHSL, 10, 50)) {
+      if (matchColor(sHSL, tHSL, ct, lt)) {
+        mask.data.data[4 * i] = src.data.data[4 * i];
+        mask.data.data[4 * i + 1] = src.data.data[4 * i + 1];
+        mask.data.data[4 * i + 2] = src.data.data[4 * i + 2];
         mask.data.data[4 * i + 3] = 0xFF;
-//      }
+      }
+      else {
+        mask.data.data[4 * i] = 204 + src.data.data[4 * i] / 5;
+        mask.data.data[4 * i + 1] = 204 + src.data.data[4 * i + 1] / 5;
+        mask.data.data[4 * i + 2] = 204 + src.data.data[4 * i + 2] / 5;
+        mask.data.data[4 * i + 3] = 0xFF;
+      }
     }
-    console.timeEnd('color');
+  }
+
+  function matchColor(source, target, ct, lt) {
+    if ((abs(100 * (source[0] - target[0])) <= ct) &&
+      (abs(100 * (source[2] - target[2])) <= lt)) {
+      return true;
+    }
   }
 
   function rgbToHsl(r, g, b) {
