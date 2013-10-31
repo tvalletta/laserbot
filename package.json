@@ -1,0 +1,17 @@
+{
+  "name": "LaserBot",
+  "version": "0.0.1-00",
+  "engines": {
+    "node": "0.10.x",
+    "npm": "1.2.x"
+  },
+  "private": true,
+  "scripts": {
+    "start": "node server/app"
+  },
+  "dependencies": {
+    "express": "~3.4.3",
+    "socket.io": "~0.9.16",
+    "johnny-five": "~0.7.4"
+  }
+}

@@ -1,0 +1,47 @@
+<html>
+    <head>
+    </head>
+    <body>
+        <!--input id="servo0" type="range" min="0" max="180"-->
+        <video id='cam' autoplay='true' width='800' height='600'></video>
+        <div id="mask"></div>
+
+        <script src="js/target-motion.js"></script>
+        <script src="/socket.io/socket.io.js"></script>
+        <script>
+            var socket = io.connect();
+
+            socket.on('ack', function (data) {
+                console.log(data);
+            });
+
+            var cam = document.getElementById('cam');
+            navigator.getUserMedia = navigator.getUserMedia || navigator.webkitGetUserMedia;
+            navigator.getUserMedia({video:true}, function(stream) {
+
+                cam.src = createObjURL(stream);
+
+                var motion = new TargetMotion(cam);
+                motion.go();
+                var mask = motion.getMask();
+
+                var maskDiv = document.getElementById('mask');
+                maskDiv.appendChild(mask.canvas);
+
+                console.log('now what');
+            });
+
+            function createObjURL(stream) {
+                if (window.URL && window.URL.createObjectURL) {
+                    return window.URL.createObjectURL(stream);
+                }
+                else if (window.webkitURL && window.URL.createObjectURL) {
+                    return window.webkitURL.createObjectURL(stream);
+                }
+                else {
+                    alert('Unsupported Browser: no createObjectUrl')
+                }
+            }
+        </script>
+    </body>
+</html>
