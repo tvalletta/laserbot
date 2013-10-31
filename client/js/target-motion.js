@@ -42,7 +42,7 @@ var TargetMotion = function(video) {
 
     mask.data = src.ctx.createImageData(width, height);
 //    diff(src, mask);
-//    findColor(src, mask, )
+    findColor(src, mask, {r: 255, g: 102, b: 0}, 10, 80);
     mask.ctx.putImageData(mask.data, 0, 0);
 
     src.prev = src.data;
@@ -50,7 +50,7 @@ var TargetMotion = function(video) {
 
   function diff(src, mask) {
     console.time('diff');
-    for (var i = 0; i < (src.data.data.length / 4); i+=3) {
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
       mask.data.data[4 * i] = abs(src.data.data[4 * i] - src.prev.data[4 * 1]);
       mask.data.data[4 * i + 1] = abs(src.data.data[4 * i + 1] - src.prev.data[4 * 1 + 1]);
       mask.data.data[4 * i + 2] = abs(src.data.data[4 * i + 2] - src.prev.data[4 * 1 + 2]);
@@ -59,19 +59,56 @@ var TargetMotion = function(video) {
     console.timeEnd('diff');
   }
 
-  function findColor(src, mask, rgba, threshold) {
+  function findColor(src, mask, rgb, colorThreshold, tintThreshold) {
     console.time('color');
+    var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
     for (var i = 0; i < (src.data.data.length / 4); ++i) {
-      if (abs(rgba.r - src.data.data[4 * 1]) < threshold &&
-          abs(rgba.g - src.data.data[4 * 1 + 1]) < threshold &&
-          abs(rgba.b - src.data.data[4 * 1 + 2]) < threshold) {
+//      var sHSL = rgbToHsl(
+//        src.data.data[4 * 1],
+//        src.data.data[4 * 1 + 1],
+//        src.data.data[4 * 1 + 2]);
+//      if (abs(100 * tHSL[0] - 100 * sHSL[0]) <= colorThreshold &&
+//        abs(100 * tHSL[2] - 100 * sHSL[2]) <= tintThreshold) {
+//        mask.data.data[4 * i] = src.data.data[4 * 1];
+//        mask.data.data[4 * i + 1] = src.data.data[4 * 1 + 1];
+//        mask.data.data[4 * i + 2] = src.data.data[4 * 1 + 2];
+//        mask.data.data[4 * i + 3] = 0xFF;
+//      }
+//      else {
         mask.data.data[4 * i] = src.data.data[4 * 1];
         mask.data.data[4 * i + 1] = src.data.data[4 * 1 + 1];
-        mask.data.data[4 * i + 2] = src.data.data[4 * 1 + 2];
-        mask.data.data[4 * i + 3] = src.data.data[4 * 1 + 3];
-      }
+        mask.data.data[4 * i + 2] = 0;
+        mask.data.data[4 * i + 3] = 0xFF;
+//      }
     }
     console.timeEnd('color');
+  }
+
+  function rgbToHsl(r, g, b) {
+    r /= 255, g /= 255, b /= 255;
+    var max = Math.max(r, g, b), min = Math.min(r, g, b);
+    var h, s, l = (max + min) / 2;
+
+    if (max == min) {
+      h = s = 0; // achromatic
+    } else {
+      var d = max - min;
+      s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+      switch (max) {
+        case r:
+          h = (g - b) / d + (g < b ? 6 : 0);
+          break;
+        case g:
+          h = (b - r) / d + 2;
+          break;
+        case b:
+          h = (r - g) / d + 4;
+          break;
+      }
+      h /= 6;
+    }
+
+    return [h, s, l];
   }
 
   // --- Utility Functions -----------------------------------------------------
