@@ -13,6 +13,6 @@
     "express": "~3.4.3",
     "socket.io": "~0.9.16",
     "johnny-five": "~0.7.4",
-    "socket.io-client": "~0.9.16"
+    "redis": "~0.9.1"
   }
 }

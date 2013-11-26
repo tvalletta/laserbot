@@ -1,1 +1,0 @@
-var firmata = require('firmata');

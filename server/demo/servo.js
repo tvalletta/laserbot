@@ -1,9 +1,7 @@
 var five = require("johnny-five"),
   board, servo;
 
-//board = new five.Board();
-//board = new five.Board({port: "/dev/cu.usbmodem1411"});
-board = new five.Board({port: "/dev/tty.usbmodem1411"});
+board = new five.Board();
 
 board.on("ready", function() {
 

@@ -1,7 +1,7 @@
 var five = require("johnny-five"),
   board, servo;
 
-board = new five.Board({port: "/dev/tty.usbmodem1411"});
+board = new five.Board();
 
 board.on("ready", function() {
 
@@ -14,6 +14,6 @@ board.on("ready", function() {
 
   potentiometer.on("data", function() {
     console.log( this.value, this.raw );
-    servo.move(five.Fn.map(this.raw, 0, 1023, 0, 179));
+    servo.move(five.*.map(this.raw, 0, 1023, 0, 179));
   });
 });
