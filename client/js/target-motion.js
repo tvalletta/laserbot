@@ -1,9 +1,26 @@
 /**
  * Created by validity on 10/25/13.
  */
-var rgb = {r: 204, g: 102, b: 0};
-var ct = 5;
-var lt = 25;
+//var rgb = {r: 240, g: 180, b: 117}; // Orange Ball
+//var rgb = {r: 225, g: 100, b: 30}; // Orange Ball
+//var rgb = {r: 27, g: 160, b: 120}; // Green Marker
+//var rgb = {r: 27, g: 160, b: 200}; // Blue Shirt
+//var rgb = {r: 85, g: 123, b: 95}; // Green shirt on Bus
+//var rgb = {r: 255, g: 255, b: 255}; // White
+//var rgb = {r: 247, g: 255, b: 40}; // Tennis Ball in the light
+var rgb = {r: 48, g: 255, b: 210}; // Tennis Ball in the light
+
+//var hsl = [3, 0, 40];
+var diffMult = [1000, 10, 100];
+
+var _cam = {
+  xDeg: 46,
+  yDeg: 36
+}
+var _serv = {
+  xDeg: 170,
+  yDeg: 180
+}
 
 var TargetMotion = function(video) {
 
@@ -15,10 +32,10 @@ var TargetMotion = function(video) {
 
   // --- Public Functions ------------------------------------------------------
 
-  function go() {
+  function go(socket) {
     setTimeout(function() {
-      update();
-      go();
+      update(socket);
+      go(socket);
     }, 1000 / 10);
   }
 
@@ -37,20 +54,50 @@ var TargetMotion = function(video) {
     return c;
   }
 
-  function update() {
-    src.ctx.drawImage(video, 0, 0, width, height);
+  function update(socket) {
+    /* width
+     * height
+     * 4  - one value for each: r g b a
+     * 25 - one score for each 4 x 4 sector
+     * 4  - one array spot for each Uint32 value
+     */
+    var bufferLength = ((((width * height) * 4) / 25) * 4);
+    var buffer = new ArrayBuffer(bufferLength);
+    var scores = new Uint32Array(buffer);
 
+    /* width
+     * height
+     * 4  - one value for each: r g b a
+     * 25 - one score for each 4 x 4 sector
+     * 4  - one array spot for each Uint32 value
+     */
+    var bufferLength2 = bufferLength;
+    var buffer2 = new ArrayBuffer(bufferLength2);
+    var scores2 = new Uint32Array(buffer2);
+
+
+    src.ctx.drawImage(video, 0, 0, width, height);
     src.data = src.ctx.getImageData(0, 0, width, height);
-    if (!src.prev) src.prev = src.ctx.getImageData(0, 0, width, height);
 
     mask.data = src.ctx.createImageData(width, height);
 //    diff(src, mask);
-    target(src, mask, rgb);
-    mask.ctx.putImageData(mask.data, 0, 0);
+//    isolate(src, mask, rgb);
+//    heatmapOld(src, mask, scores, rgb);
+//    heatmap(src, mask, scores, rgb);
+    var tgt = target(src, mask, scores, scores2, rgb);
+    if (socket) socket.emit('target', tgt);
 
-    src.prev = src.data;
+    mask.ctx.putImageData(mask.data, 0, 0);
   }
 
+
+  // Output formats ------------------------------------------------------------
+
+  /**
+   *
+   * @param src
+   * @param mask
+   */
   function diff(src, mask) {
     for (var i = 0; i < (src.data.data.length / 4); ++i) {
       mask.data.data[4 * i] = abs(src.data.data[4 * i] - src.prev.data[4 * 1]);
@@ -60,8 +107,16 @@ var TargetMotion = function(video) {
     }
   }
 
-  function target(src, mask, rgb) {
+  /**
+   *
+   * @param src
+   * @param mask
+   * @param rgb
+   */
+  function isolate(src, mask, rgb) {
     var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    var ct = 3;
+    var lt = 40;
 
     for (var i = 0; i < (src.data.data.length / 4); ++i) {
       var sHSL = rgbToHsl(
@@ -77,11 +132,265 @@ var TargetMotion = function(video) {
         mask.data.data[4 * i + 3] = 0xFF;
       }
       else {
-        mask.data.data[4 * i] = 204 + src.data.data[4 * i] / 5;
-        mask.data.data[4 * i + 1] = 204 + src.data.data[4 * i + 1] / 5;
-        mask.data.data[4 * i + 2] = 204 + src.data.data[4 * i + 2] / 5;
+        mask.data.data[4 * i] = src.data.data[4 * i] / 5;
+        mask.data.data[4 * i + 1] = src.data.data[4 * i + 1] / 5;
+        mask.data.data[4 * i + 2] = src.data.data[4 * i + 2] / 5;
         mask.data.data[4 * i + 3] = 0xFF;
       }
+    }
+  }
+
+  /**
+   *
+   * @param src
+   * @param mask
+   * @param scores
+   * @param rgb
+   */
+  function heatmapOld(src, mask, scores, rgb) {
+    var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * (mask.data.width / 5)) + col;
+      var sHSL = rgbToHsl(
+        src.data.data[4 * i],
+        src.data.data[4 * i + 1],
+        src.data.data[4 * i + 2]);
+
+      scores[sIndex] += colorDistance(sHSL, tHSL, diffMult);
+    }
+
+    var high = 0;
+    var low = 999;
+    for (var i = 0; i < scores.length; ++i) {
+      high = Math.max(scores[i], high);
+      low = Math.min(scores[i], low);
+    }
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * (mask.data.width / 5)) + col;
+
+      var score = scores[sIndex];
+      var color = abs((3 * Math.log(score)) * (255 / (3 * Math.log(high))));
+
+      mask.data.data[4 * i] = 255 - color;
+      mask.data.data[4 * i + 1] = 0;
+      mask.data.data[4 * i + 2] = color;
+      mask.data.data[4 * i + 3] = 0xFF;
+    }
+  }
+
+  /**
+   *
+   * @param src
+   * @param mask
+   * @param scores
+   * @param rgb
+   */
+  function heatmap(src, mask, scores, rgb) {
+    var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * (mask.data.width / 5)) + col;
+      var sHSL = rgbToHsl(
+        src.data.data[4 * i],
+        src.data.data[4 * i + 1],
+        src.data.data[4 * i + 2]);
+
+      scores[sIndex] += colorDistance(sHSL, tHSL, diffMult);
+    }
+
+    var high = 0;
+    var low = 999;
+    for (var i = 0; i < scores.length; ++i) {
+      high = Math.max(scores[i], high);
+      low = Math.min(scores[i], low);
+    }
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * (mask.data.width / 5)) + col;
+
+      var score = scores[sIndex];
+      var color = abs((3 * Math.log(score)) * (511 / (3 * Math.log(high))));
+
+      mask.data.data[4 * i] = Math.max(0, 255 - color);
+      mask.data.data[4 * i + 1] = 256 - abs(color - 256);
+      mask.data.data[4 * i + 2] = Math.max(0, color - 256);
+      mask.data.data[4 * i + 3] = 0xFF;
+    }
+  }
+
+  /**
+   *
+   * @param src
+   * @param mask
+   * @param scores
+   * @param rgb
+   */
+  function targetOverlay(src, mask, scores, scores2, rgb) {
+    var crosshairs = document.getElementsByClassName('crosshairs')[0];
+
+    console.time('target');
+    var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+
+    var focusWidth = mask.data.width / 5;
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * focusWidth) + col;
+      var sHSL = rgbToHsl(
+        src.data.data[4 * i],
+        src.data.data[4 * i + 1],
+        src.data.data[4 * i + 2]);
+
+      scores[sIndex] += colorDistance(sHSL, tHSL, diffMult);
+    }
+
+    var high = 0;
+    var low = 999;
+    for (var i = 0; i < scores.length; ++i) {
+      high = Math.max(scores[i], high);
+      low = Math.min(scores[i], low);
+    }
+
+    for (var i = 0; i < scores2.length; ++i) {
+      for (var y = -4; y < 5; ++y) {
+        for (var x = -4; x < 5; ++x) {
+          var index = i + (y * focusWidth) + x;
+          if (scores[index]) {
+            scores2[i] = scores2[i] + (high - scores[index]);
+          }
+        }
+      }
+    }
+
+    var high2 = 0;
+    var low2 = 999;
+    for (var i = 0; i < scores2.length; ++i) {
+      high2 = Math.max(scores2[i], high2);
+      low2 = Math.min(scores2[i], low2);
+    }
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * (mask.data.width / 5)) + col;
+
+      var score = high2 - scores2[sIndex];
+      var color = abs((3 * Math.log(score)) * (511 / (3 * Math.log(high2))));
+
+      mask.data.data[4 * i] = Math.max(0, 255 - color);
+      mask.data.data[4 * i + 1] = 256 - abs(color - 256);
+      mask.data.data[4 * i + 2] = Math.max(0, color - 256);
+      mask.data.data[4 * i + 3] = 0xFF;
+    }
+
+    for (var i = 0; i < scores2.length; ++i) {
+      if (scores2[i] === high2) {
+        var coords = getCoordinates(i, mask.data.width);
+        crosshairs.style.left = coords.x + 'px';
+        crosshairs.style.top = coords.y + 'px';
+        return;
+      }
+    }
+
+    console.timeEnd('target');
+  }
+
+
+  /**
+   *
+   * @param src
+   * @param mask
+   * @param scores
+   * @param rgb
+   */
+  function target(src, mask, scores, scores2, rgb) {
+    var crosshairs = document.getElementsByClassName('crosshairs')[0];
+
+    var tHSL = rgbToHsl(rgb.r, rgb.g, rgb.b);
+    var focusWidth = mask.data.width / 5;
+
+    for (var i = 0; i < (src.data.data.length / 4); ++i) {
+      var row = Math.floor((i / mask.data.width) / 5);
+      var col = Math.floor((i % mask.data.width) / 5);
+      var sIndex = (row * focusWidth) + col;
+      var sHSL = rgbToHsl(
+        src.data.data[4 * i],
+        src.data.data[4 * i + 1],
+        src.data.data[4 * i + 2]);
+
+      scores[sIndex] += colorDistance(sHSL, tHSL, diffMult);
+    }
+
+    var high = 0;
+    var low = 999;
+    for (var i = 0; i < scores.length; ++i) {
+      high = Math.max(scores[i], high);
+      low = Math.min(scores[i], low);
+    }
+
+    for (var i = 0; i < scores2.length; ++i) {
+      for (var y = -4; y < 5; ++y) {
+        for (var x = -4; x < 5; ++x) {
+          var index = i + (y * focusWidth) + x;
+          if (scores[index]) {
+            scores2[i] = scores2[i] + (high - scores[index]);
+          }
+        }
+      }
+    }
+
+    var high2 = 0;
+    var low2 = 999;
+    for (var i = 0; i < scores2.length; ++i) {
+      high2 = Math.max(scores2[i], high2);
+      low2 = Math.min(scores2[i], low2);
+    }
+
+    for (var i = 0; i < scores2.length; ++i) {
+      if (scores2[i] === high2) {
+        var coords = getCoordinates(i, mask.data.width);
+        crosshairs.style.left = coords.x + 'px';
+        crosshairs.style.top = coords.y + 'px';
+        return getCameraAngle(coords);
+      }
+    }
+  }
+
+
+  // Utility Functions ---------------------------------------------------------
+
+  function getCoordinates(i, width) {
+    i*=5;
+    var coords = {
+      y: Math.floor((i * 5) / width),
+      x: i % width
+    }
+    return coords;
+  }
+
+  function getCameraAngle(coords) {
+    var marginX = (_serv.xDeg - _cam.xDeg) / 2;
+    var x = (coords.x * (_cam.xDeg / width)) + marginX;
+    var marginY = (_serv.yDeg - _cam.yDeg) / 2;
+    var y = (coords.y * (_cam.yDeg / height)) + marginY;
+    return {x: _serv.xDeg - x, y: y};
+  }
+
+  function getCenterZeroAngle(coords) {
+    return {
+      y: (coords.y - (height / 2)) * (_cam.yAngle / height),
+      x: (coords.x - (width / 2)) * (_cam.xAngle / width)
     }
   }
 
@@ -90,6 +399,13 @@ var TargetMotion = function(video) {
       (abs(100 * (source[2] - target[2])) <= lt)) {
       return true;
     }
+  }
+
+  function colorDistance(src, tgt, diffMult) {
+    var hue = abs(diffMult[0] * (src[0] - tgt[0]));
+    var sat = abs(diffMult[1] * (src[1] - tgt[1]));
+    var lit = abs(diffMult[2] * (src[2] - tgt[2]));
+    return hue + sat + lit;
   }
 
   function rgbToHsl(r, g, b) {
@@ -118,8 +434,6 @@ var TargetMotion = function(video) {
 
     return [h, s, l];
   }
-
-  // --- Utility Functions -----------------------------------------------------
 
   function abs(num) {
     var b = num >> 31;

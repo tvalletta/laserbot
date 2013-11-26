@@ -1,8 +1,19 @@
 <html>
     <head>
+        <style>
+            .crosshairs {
+                border: 2px solid red;
+                border-radius: 25px;
+                position: absolute;
+                width: 40px;
+                height: 40px;
+                transform: translate(-20px, -20px);
+                -webkit-transform: translate(-20px, -20px);
+            }
+        </style>
     </head>
     <body>
-        <!--input id="servo0" type="range" min="0" max="180"-->
+        <div class="crosshairs"></div>
         <video id='cam' autoplay='true' width='800' height='600'></video>
         <div id="mask"></div>
 
@@ -22,7 +33,7 @@
                 cam.src = createObjURL(stream);
 
                 var motion = new TargetMotion(cam);
-                motion.go();
+                motion.go(socket);
                 var mask = motion.getMask();
 
                 var maskDiv = document.getElementById('mask');

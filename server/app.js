@@ -45,38 +45,11 @@ io.sockets.on('connection', function (socket) {
     id: guid
   });
 
-  socket.on('actuate', function(scale) {
-    // Go bots
-    bot.scale(scale);
+  socket.on('target', function(coords) {
+    if (laser && laser.move)
+      laser.move(coords.x, coords.y);
   });
-
-  socket.on('v', function(vote) {
-    vtrs[guid] = vote;
-    var voteTotal = calculateVotes();
-
-    var scaled = (voteTotal * 90) + 90;
-
-    console.log(scaled);
-    bot.scale(scaled);
-    bot.led(200);
-
-  });
-
 });
-
-
-var calculateVotes = function(){
-  var total = 0;
-
-
-  for(var guid in vtrs) {
-    total += vtrs[guid];
-  }
-
-  console.log(vtrCount);
-
-  return total / vtrCount;
-}
 
 var generateGuid = function() {
   var mask = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx';

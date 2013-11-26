@@ -1,6 +1,6 @@
 var five = require("johnny-five");
 
-var board = new five.Board();
+var board = new five.Board({port: "/dev/tty.usbmodem1411"});
 
 var SERVO_X_PIN = 9;
 var SERVO_Y_PIN = 11;
@@ -39,28 +39,37 @@ board.on("ready", function() {
     y: 0
   }
 
-  var out = {
-    fire: function(ms) {
-      laser.digitalWrite(LASER_PIN, 1);
-      setTimeout(function() {
-        laser.digitalWrite(LASER_PIN, 0);
-      }, ms);
-    },
-    move: function(x, y) {
-      var moveX = x - last.x;
-      var moveY = y - last.y;
-      servoX.move(moveX);
-      servoY.move(moveY);
-      last.x = x;
-      last.y = y;
-    }
+  exports.fire = function(ms) {
+    laser.digitalWrite(LASER_PIN, 1);
+    setTimeout(function() {
+      laser.digitalWrite(LASER_PIN, 0);
+    }, ms);
+  };
+
+  exports.move = function(x, y) {
+    var moveX = x - last.x;
+    var moveY = y - last.y;
+    servoX.move(moveX);
+    servoY.move(moveY);
+    last.x = x;
+    last.y = y;
   }
 
   joystick.on('axismove', function() {
-    servoY.move(Math.ceil(170 * this.fixed.y));
-    servoX.move(Math.ceil(180 * this.fixed.x));
-    out.fire(1000);
+    var y = Math.ceil(170 * this.fixed.y);
+    var x = Math.ceil(180 * this.fixed.x);
+    console.log('x: ' + x + ' y: ' + y);
+    servoY.move(y);
+    servoX.move(x);
+    exports.fire(1000);
   });
 
-  module.exports = out;
 });
+
+exports.fire = function() {
+  console.log('not ready');
+}
+
+exports.move = function() {
+  console.log('not ready');
+}

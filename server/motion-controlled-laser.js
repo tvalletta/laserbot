@@ -27,19 +27,26 @@ board.on("ready", function() {
   var laser = this;
   laser.pinMode(LASER_PIN, 1);
 
-  var out = {
-    fire: function(ms) {
-      laser.digitalWrite(LASER_PIN, 1);
-      setTimeout(function() {
-        laser.digitalWrite(LASER_PIN, 0);
-      }, ms);
-    },
-    move: function(x, y) {
-      servoX.move(Math.round(170 * x));
-      servoY.move(Math.round(180 * y));
-      out.fire(1000);
-    }
+  exports.fire = function(ms) {
+    laser.digitalWrite(LASER_PIN, 1);
+    setTimeout(function() {
+      laser.digitalWrite(LASER_PIN, 0);
+    }, ms);
   }
 
-  module.exports = out;
+  exports.move = function(x, y) {
+    console.log('x: ' + x + ' y: ' + y);
+    servoX.move(x);
+    servoY.move(y);
+    exports.fire(1000);
+  }
+
 });
+
+exports.fire = function() {
+  console.log('not ready');
+};
+
+exports.move = function() {
+  console.log('not ready');
+};
